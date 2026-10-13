@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agro-Monitoring Pro - Parametrização e Controle de Atuadores</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='20' font-size='20'>⚡</text></svg>">
+</head>
+<body>
+
+  <!-- CABEÇALHO INDUSTRIAL -->
+  <header class="industrial-header">
+    <div class="header-brand">
+      <a id="btnBackToDetail" href="/tela2-detalhe.html?siloId=2" style="color: #ffffff; text-decoration: none; font-size: 1.2rem; display: flex; align-items: center; gap: 8px;" title="Retornar aos Detalhes">
+        ⬅️
+      </a>
+      <div class="brand-icon">⚡</div>
+      <div>
+        <div id="headerTitle" class="brand-title">Parametrização e Controle de Atuadores — Silo 02 (Soja)</div>
+        <div class="brand-subtitle">Interface de Comandos Físicos & Intertravamento de Segurança (Safety Interlock)</div>
+      </div>
+    </div>
+    <div class="header-status">
+      <span style="font-size: 0.85rem; font-weight: 600; color: #a7f3d0;">Operador: OP-882</span>
+      <div id="sseStatusBadge" class="sse-badge connecting">
+        <span class="pulse-dot"></span>
+        <span id="sseStatusText">Conectando...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MENSAGEM DE FEEDBACK DE RESPOSTA REST -->
+  <div id="restFeedbackBox" style="display: none; padding: 12px 24px; font-weight: 600; font-size: 0.9rem; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.1);">
+    <span id="restFeedbackMsg"></span>
+    <button onclick="document.getElementById('restFeedbackBox').style.display='none'" style="background: none; border: none; font-size: 1.1rem; cursor: pointer;">✕</button>
+  </div>
+
+  <main class="main-container">
+    <div class="control-grid">
+
+      <!-- COLUNA ESQUERDA: PAINEL DE CONTROLE DE ATUADORES -->
+      <section class="panel-card">
+        <div class="panel-header">
+          <span>🎛️ Painel de Operação dos Relés Industriais</span>
+          <span id="badgeModoGeral" class="badge-tag badge-ok">AUTOMÁTICO</span>
+        </div>
+
+        <div class="panel-body">
+
+          <!-- CHAVE SELETORA: SAFETY INTERLOCK (AUTOMÁTICO / MANUAL) -->
+          <div class="interlock-banner">
+            <div>
+              <div style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Chave Seletora de Modo</div>
+              <div id="interlockDesc" style="font-size: 0.8rem; color: #64748b; margin-top: 2px;">
+                Modo Automático ativo. Comandos manuais travados pelo Interlock.
+              </div>
+            </div>
+            <div class="toggle-switch-wrapper">
+              <button id="btnModoAuto" class="toggle-btn active">⚙️ Automático</button>
+              <button id="btnModoManual" class="toggle-btn">🖐️ Manual</button>
+            </div>
+          </div>
+
+          <!-- LISTA DE ATUADORES INDIVIDUAIS -->
+          <div class="actuator-controls-list">
+
+            <!-- ATUADOR 1: COMPORTA SUPERIOR -->
+            <div class="actuator-control-card">
+              <div>
+                <div class="actuator-name">
+                  <span id="ledComporta" class="led-indicator"></span>
+                  <span>Comporta de Ventilação Superior</span>
+                </div>
+                <div id="statusComportaTexto" style="font-size: 0.8rem; color: #64748b; margin-left: 20px; margin-top: 2px;">
+                  Status: FECHADA
+                </div>
+              </div>
+              <div class="actuator-btn-group">
+                <button id="btnAbrirComporta" class="btn-industrial btn-open" disabled>
+                  🟢 Abrir
+                </button>
+                <button id="btnFecharComporta" class="btn-industrial btn-close" disabled>
+                  🔴 Fechar
+                </button>
+              </div>
+            </div>
+
+            <!-- ATUADOR 2: EXAUSTOR TÉRMICO 01 -->
+            <div class="actuator-control-card">
+              <div>
+                <div class="actuator-name">
+                  <span id="ledExaustor1" class="led-indicator"></span>
+                  <span>Exaustor Térmico 01 (Teto Norte)</span>
+                </div>
+                <div id="statusExaustor1Texto" style="font-size: 0.8rem; color: #64748b; margin-left: 20px; margin-top: 2px;">
+                  Status: DESLIGADO
+                </div>
+              </div>
+              <div class="actuator-btn-group">
+                <button id="btnLigarExaustor1" class="btn-industrial btn-on" disabled>
+                  ⚡ Ligar
+                </button>
+                <button id="btnDesligarExaustor1" class="btn-industrial btn-off" disabled>
+                  ⏹️ Desligar
+                </button>
+              </div>
+            </div>
+
+            <!-- ATUADOR 3: EXAUSTOR TÉRMICO 02 -->
+            <div class="actuator-control-card">
+              <div>
+                <div class="actuator-name">
+                  <span id="ledExaustor2" class="led-indicator"></span>
+                  <span>Exaustor Térmico 02 (Teto Sul)</span>
+                </div>
+                <div id="statusExaustor2Texto" style="font-size: 0.8rem; color: #64748b; margin-left: 20px; margin-top: 2px;">
+                  Status: DESLIGADO
+                </div>
+              </div>
+              <div class="actuator-btn-group">
+                <button id="btnLigarExaustor2" class="btn-industrial btn-on" disabled>
+                  ⚡ Ligar
+                </button>
+                <button id="btnDesligarExaustor2" class="btn-industrial btn-off" disabled>
+                  ⏹️ Desligar
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- SIMULAÇÃO DE FLUXOS ALTERNATIVOS E EXCEÇÕES (SEÇÃO 6.3.4) -->
+          <div style="background: #fffbeb; border: 1px solid #fef08a; border-radius: 8px; padding: 12px; margin-top: 10px;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #92400e; margin-bottom: 6px;">
+              🛡️ Simulação de Sensores Externos de Segurança (Fluxos Alternativos 6.3.4)
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <label style="font-size: 0.8rem; color: #78350f; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" id="chkSensorChuva">
+                <span>🌧️ Sensor de Chuva Externo Ativo</span>
+              </label>
+              <label style="font-size: 0.8rem; color: #78350f; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" id="chkSobrecargaMotor">
+                <span>⚠️ Sobrecarga no Motor do Exaustor (Relé Térmico)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- BOTÕES DE NAVEGAÇÃO -->
+          <div style="display: flex; gap: 12px; margin-top: 14px;">
+            <a href="/tela1-dashboard.html" class="btn-secondary-action" style="flex: 1;">
+              🏠 Retornar ao Dashboard Global
+            </a>
+            <a id="btnIrCorteSvg" href="/tela2-detalhe.html?siloId=2" class="btn-secondary-action" style="flex: 1; background: #0284c7;">
+              📐 Inspecionar Corte SVG
+            </a>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- COLUNA DIREITA: TERMINAL DE AUDITORIA INDUSTRIAL EM TEMPO REAL -->
+      <section class="panel-card">
+        <div class="panel-header">
+          <span>📟 Log de Auditoria Industrial em Tempo Real (RF-08)</span>
+          <span style="font-size: 0.75rem; color: #64748b;">Últimas 20 Ocorrências em Memória</span>
+        </div>
+        <div class="panel-body">
+          <p style="font-size: 0.82rem; color: #64748b;">
+            Histórico das ações manuais, acionamentos automáticos e disparos de alarmes emitidos pelo CLP/servidor:
+          </p>
+
+          <div id="industrialTerminal" class="terminal-container">
+            <div class="terminal-line sistema">[CLP] Conectando ao barramento de auditoria...</div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <span style="font-size: 0.78rem; color: #64748b;">Registro contínuo em conformidade com RF-08 e Listing 3</span>
+            <button id="btnAtualizarLogs" class="filter-btn" style="padding: 4px 10px; font-size: 0.8rem;">
+              🔄 Atualizar Terminal
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    Agro-Monitoring Pro &bull; Parametrização de Atuadores &bull; UniRV (Me. Sergio Souza Novak)
+  </footer>
+
+  <script src="/js/api.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const siloId = parseInt(urlParams.get('siloId') || '2', 10);
+    const operadorId = 'OP-882';
+
+    // Elementos DOM
+    const headerTitle = document.getElementById('headerTitle');
+    const btnBackToDetail = document.getElementById('btnBackToDetail');
+    const btnIrCorteSvg = document.getElementById('btnIrCorteSvg');
+    const sseStatusBadge = document.getElementById('sseStatusBadge');
+    const sseStatusText = document.getElementById('sseStatusText');
+
+    const btnModoAuto = document.getElementById('btnModoAuto');
+    const btnModoManual = document.getElementById('btnModoManual');
+    const badgeModoGeral = document.getElementById('badgeModoGeral');
+    const interlockDesc = document.getElementById('interlockDesc');
+
+    const ledComporta = document.getElementById('ledComporta');
+    const statusComportaTexto = document.getElementById('statusComportaTexto');
+    const btnAbrirComporta = document.getElementById('btnAbrirComporta');
+    const btnFecharComporta = document.getElementById('btnFecharComporta');
+
+    const ledExaustor1 = document.getElementById('ledExaustor1');
+    const statusExaustor1Texto = document.getElementById('statusExaustor1Texto');
+    const btnLigarExaustor1 = document.getElementById('btnLigarExaustor1');
+    const btnDesligarExaustor1 = document.getElementById('btnDesligarExaustor1');
+
+    const ledExaustor2 = document.getElementById('ledExaustor2');
+    const statusExaustor2Texto = document.getElementById('statusExaustor2Texto');
+    const btnLigarExaustor2 = document.getElementById('btnLigarExaustor2');
+    const btnDesligarExaustor2 = document.getElementById('btnDesligarExaustor2');
+
+    const chkSensorChuva = document.getElementById('chkSensorChuva');
+    const chkSobrecargaMotor = document.getElementById('chkSobrecargaMotor');
+
+    const restFeedbackBox = document.getElementById('restFeedbackBox');
+    const restFeedbackMsg = document.getElementById('restFeedbackMsg');
+    const industrialTerminal = document.getElementById('industrialTerminal');
+
+    btnBackToDetail.href = `/tela2-detalhe.html?siloId=${siloId}`;
+    btnIrCorteSvg.href = `/tela2-detalhe.html?siloId=${siloId}`;
+
+    let siloAtual = null;
+
+    function exibirFeedback(sucesso, msg) {
+      restFeedbackBox.style.display = 'flex';
+      restFeedbackBox.style.backgroundColor = sucesso ? '#dcfce7' : '#fee2e2';
+      restFeedbackBox.style.color = sucesso ? '#15803d' : '#b91c1c';
+      restFeedbackMsg.textContent = msg;
+      setTimeout(() => {
+        restFeedbackBox.style.display = 'none';
+      }, 5000);
+    }
+
+    function atualizarTerminal(logs) {
+      if (!logs || logs.length === 0) return;
+      industrialTerminal.innerHTML = logs.map(log => {
+        let classe = 'sistema';
+        if (log.tipo === 'ATUADOR') classe = 'atuador';
+        else if (log.tipo === 'ALARME' || log.tipo === 'SEGURANCA') classe = 'alarme';
+        return `<div class="terminal-line ${classe}">${log.mensagem}</div>`;
+      }).join('');
+    }
+
+    function carregarLogs() {
+      API.buscarLogs().then(res => {
+        if (res && res.logs) {
+          atualizarTerminal(res.logs);
+        }
+      });
+    }
+
+    document.getElementById('btnAtualizarLogs').addEventListener('click', carregarLogs);
+
+    function atualizarEstadoUI(silo) {
+      if (!silo) return;
+      siloAtual = silo;
+      headerTitle.textContent = `Parametrização e Controle de Atuadores — ${silo.codigo} (${silo.tipoGrao})`;
+
+      const isManual = (silo.modoOperacao === 'MANUAL');
+
+      // Atualiza Chave Seletora
+      if (isManual) {
+        btnModoManual.classList.add('active');
+        btnModoAuto.classList.remove('active');
+        badgeModoGeral.className = 'badge-tag badge-warning';
+        badgeModoGeral.textContent = 'MODO MANUAL ATIVO';
+        interlockDesc.textContent = 'Interlock desarmado. Comandos manuais habilitados pelo Operador OP-882.';
+      } else {
+        btnModoAuto.classList.add('active');
+        btnModoManual.classList.remove('active');
+        badgeModoGeral.className = 'badge-tag badge-ok';
+        badgeModoGeral.textContent = 'SAFETY INTERLOCK ATIVO';
+        interlockDesc.textContent = 'Modo Automático ativo. Comandos manuais travados pelo Interlock de Segurança.';
+      }
+
+      // Habilita ou desabilita botões conforme modo manual
+      btnAbrirComporta.disabled = !isManual;
+      btnFecharComporta.disabled = !isManual;
+      btnLigarExaustor1.disabled = !isManual;
+      btnDesligarExaustor1.disabled = !isManual;
+      btnLigarExaustor2.disabled = !isManual;
+      btnDesligarExaustor2.disabled = !isManual;
+
+      // Status Comporta
+      const isComportaAberta = (silo.comporta === 'ABERTA');
+      if (isComportaAberta) {
+        ledComporta.className = 'led-indicator on';
+        statusComportaTexto.textContent = 'Status: ABERTA (Fluxo Ativo)';
+        statusComportaTexto.style.color = '#15803d';
+      } else {
+        ledComporta.className = 'led-indicator';
+        statusComportaTexto.textContent = 'Status: FECHADA (Selada)';
+        statusComportaTexto.style.color = '#64748b';
+      }
+
+      // Status Exaustor 1
+      const isExaustor1Ligado = (silo.exaustor1 === 'LIGADO' || (silo.exaustor === 'LIGADO' && silo.exaustor1 !== 'DESLIGADO'));
+      if (isExaustor1Ligado) {
+        ledExaustor1.className = 'led-indicator on';
+        statusExaustor1Texto.textContent = 'Status: LIGADO (Aspirando)';
+        statusExaustor1Texto.style.color = '#15803d';
+      } else {
+        ledExaustor1.className = 'led-indicator';
+        statusExaustor1Texto.textContent = 'Status: DESLIGADO';
+        statusExaustor1Texto.style.color = '#64748b';
+      }
+
+      // Status Exaustor 2
+      const isExaustor2Ligado = (silo.exaustor2 === 'LIGADO');
+      if (isExaustor2Ligado) {
+        ledExaustor2.className = 'led-indicator on';
+        statusExaustor2Texto.textContent = 'Status: LIGADO (Aspirando)';
+        statusExaustor2Texto.style.color = '#15803d';
+      } else {
+        ledExaustor2.className = 'led-indicator';
+        statusExaustor2Texto.textContent = 'Status: DESLIGADO';
+        statusExaustor2Texto.style.color = '#64748b';
+      }
+
+      // Checkboxes de sensores simulados
+      chkSensorChuva.checked = Boolean(silo.sensorChuva);
+      chkSobrecargaMotor.checked = Boolean(silo.sobrecargaMotor);
+    }
+
+    // Ações de alteração de modo (Auto / Manual)
+    btnModoAuto.addEventListener('click', async () => {
+      try {
+        await API.alterarModo(siloId, 'AUTOMATICO', operadorId);
+        carregarLogs();
+      } catch (e) {
+        exibirFeedback(false, e.message);
+      }
+    });
+
+    btnModoManual.addEventListener('click', async () => {
+      try {
+        await API.alterarModo(siloId, 'MANUAL', operadorId);
+        carregarLogs();
+      } catch (e) {
+        exibirFeedback(false, e.message);
+      }
+    });
+
+    // Checkboxes de sensores de campo
+    chkSensorChuva.addEventListener('change', async () => {
+      await API.injetarCenario({ siloId, sensorChuva: chkSensorChuva.checked });
+      carregarLogs();
+    });
+
+    chkSobrecargaMotor.addEventListener('change', async () => {
+      await API.injetarCenario({ siloId, sobrecargaMotor: chkSobrecargaMotor.checked });
+      carregarLogs();
+    });
+
+    // Ações de Atuadores via REST POST (Listing 2)
+    btnAbrirComporta.addEventListener('click', async () => {
+      try {
+        const res = await API.comandarAtuadores(siloId, { comportaComando: 'ABRIR', operadorId });
+        exibirFeedback(true, res.mensagem);
+        carregarLogs();
+      } catch (err) {
+        exibirFeedback(false, err.message);
+        carregarLogs();
+      }
+    });
+
+    btnFecharComporta.addEventListener('click', async () => {
+      try {
+        const res = await API.comandarAtuadores(siloId, { comportaComando: 'FECHAR', operadorId });
+        exibirFeedback(true, res.mensagem);
+        carregarLogs();
+      } catch (err) {
+        exibirFeedback(false, err.message);
+        carregarLogs();
+      }
+    });
+
+    btnLigarExaustor1.addEventListener('click', async () => {
+      try {
+        const res = await API.comandarAtuadores(siloId, { exaustor1Comando: 'LIGAR', operadorId });
+        exibirFeedback(true, res.mensagem);
+        carregarLogs();
+      } catch (err) {
+        exibirFeedback(false, err.message);
+        carregarLogs();
+      }
+    });
+
+    btnDesligarExaustor1.addEventListener('click', async () => {
+      try {
+        const res = await API.comandarAtuadores(siloId, { exaustor1Comando: 'DESLIGAR', operadorId });
+        exibirFeedback(true, res.mensagem);
+        carregarLogs();
+      } catch (err) {
+        exibirFeedback(false, err.message);
+        carregarLogs();
+      }
+    });
+
+    btnLigarExaustor2.addEventListener('click', async () => {
+      try {
+        const res = await API.comandarAtuadores(siloId, { exaustor2Comando: 'LIGAR', operadorId });
+        exibirFeedback(true, res.mensagem);
+        carregarLogs();
+      } catch (err) {
+        exibirFeedback(false, err.message);
+        carregarLogs();
+      }
+    });
+
+    btnDesligarExaustor2.addEventListener('click', async () => {
+      try {
+        const res = await API.comandarAtuadores(siloId, { exaustor2Comando: 'DESLIGAR', operadorId });
+        exibirFeedback(true, res.mensagem);
+        carregarLogs();
+      } catch (err) {
+        exibirFeedback(false, err.message);
+        carregarLogs();
+      }
+    });
+
+    // Conexão SSE
+    API.connectSSE({
+      onStatusChange: (status, msg) => {
+        sseStatusBadge.className = `sse-badge ${status}`;
+        sseStatusText.textContent = msg;
+      },
+      onSensorUpdate: (silo) => {
+        if (silo.siloId === siloId) {
+          atualizarEstadoUI(silo);
+        }
+      },
+      onConsolidado: (silos) => {
+        const silo = silos.find(s => s.siloId === siloId);
+        if (silo) atualizarEstadoUI(silo);
+      }
+    });
+
+    // Carga inicial
+    API.buscarSilo(siloId).then(res => {
+      if (res && res.silo) {
+        atualizarEstadoUI(res.silo);
+      }
+    });
+
+    carregarLogs();
+  </script>
+</body>
+</html>

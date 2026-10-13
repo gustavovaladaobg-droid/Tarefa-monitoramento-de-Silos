@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agro-Monitoring Pro - Dashboard Geral de Armazém</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='20' font-size='20'>🌾</text></svg>">
+</head>
+<body>
+
+  <!-- CABEÇALHO INDUSTRIAL -->
+  <header class="industrial-header">
+    <div class="header-brand">
+      <div class="brand-icon">🌾</div>
+      <div>
+        <div class="brand-title">Agro-Monitoring Pro — Visão Geral de Armazém</div>
+        <div class="brand-subtitle">Centro Integrado de Operações & Automação de Silos (SSE2 UniRV)</div>
+      </div>
+    </div>
+    <div class="header-status">
+      <button id="btnMuteSound" class="btn-mute" title="Ativar/Desativar Alerta Sonoro">🔊 Som Ativado</button>
+      <div id="sseStatusBadge" class="sse-badge connecting">
+        <span class="pulse-dot"></span>
+        <span id="sseStatusText">Conectando...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- BANNER DE ALARME CRÍTICO -->
+  <div id="criticalAlertBanner" class="alert-banner">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span style="font-size: 1.4rem;">🚨</span>
+      <span id="criticalAlertMsg">ALERTA CRÍTICO: Anomalia de alta severidade detectada!</span>
+    </div>
+    <span style="font-size: 0.85rem; opacity: 0.9;">Risco iminente térmico / biológico</span>
+  </div>
+
+  <!-- BARRA DE FERRAMENTAS E FILTROS -->
+  <section class="toolbar-section">
+    <div class="filter-group">
+      <span style="font-size: 0.85rem; font-weight: 700; color: #475569; margin-right: 4px;">FILTRAR:</span>
+      <button class="filter-btn active" data-filter="todos">Todos os Silos (6)</button>
+      <button class="filter-btn alert-filter" data-filter="alertas">⚠️ Apenas Alertas</button>
+      <button class="filter-btn" data-filter="SOJA">Soja</button>
+      <button class="filter-btn" data-filter="MILHO">Milho</button>
+      <button class="filter-btn" data-filter="TRIGO">Trigo</button>
+      <button class="filter-btn" data-filter="SORGO">Sorgo</button>
+    </div>
+
+    <!-- BOTÕES RÁPIDOS DE SIMULAÇÃO DE TESTE -->
+    <div class="filter-group" style="margin-left: auto;">
+      <span style="font-size: 0.8rem; font-weight: 600; color: #64748b;">TESTAR REGRAS:</span>
+      <button id="btnSimulaCO2" class="filter-btn" style="background: #fffbeb; border-color: #fde68a; color: #b45309;" title="Eleva CO2 do Silo 02 para 1550 ppm">
+        🧪 CO₂ &ge; 1500ppm (Silo 2)
+      </button>
+      <button id="btnSimulaTemp" class="filter-btn" style="background: #fef2f2; border-color: #fecaca; color: #b91c1c;" title="Eleva Temp do Silo 01 para 35.5°C">
+        🔥 Temp &ge; 35°C (Silo 1)
+      </button>
+      <button id="btnSimulaCarga" class="filter-btn" style="background: #f0fdf4; border-color: #bbf7d0; color: #15803d;" title="Eleva carga do Silo 05 para 99%">
+        ⚖️ Carga &ge; 98% (Silo 5)
+      </button>
+    </div>
+  </section>
+
+  <!-- CONTAINER PRINCIPAL: GRADE DE SILOS -->
+  <main class="main-container">
+    <div id="silosGrid" class="silos-grid">
+      <!-- Cards serão injetados e atualizados dinamicamente pelo SSE sem recarga -->
+      <div style="padding: 40px; text-align: center; grid-column: 1/-1; color: #64748b;">
+        Conectando ao fluxo de telemetria dos silos...
+      </div>
+    </div>
+  </main>
+
+  <!-- RODAPÉ INDUSTRIAL -->
+  <footer class="app-footer">
+    Agro-Monitoring Pro &bull; UniRV - Desenvolvimento de Software para Web &bull; Me. Sergio Souza Novak
+    &bull; Arquitetura Híbrida Server-Sent Events (SSE) + HTTP REST
+  </footer>
+
+  <!-- SCRIPTS -->
+  <script src="/js/api.js"></script>
+  <script>
+    // Estado do Dashboard no cliente
+    let silosData = [];
+    let filtroAtual = 'todos';
+    let somHabilitado = true;
+    let alarmeCriticoAtivo = false;
+
+    const silosGrid = document.getElementById('silosGrid');
+    const sseStatusBadge = document.getElementById('sseStatusBadge');
+    const sseStatusText = document.getElementById('sseStatusText');
+    const criticalAlertBanner = document.getElementById('criticalAlertBanner');
+    const criticalAlertMsg = document.getElementById('criticalAlertMsg');
+    const btnMuteSound = document.getElementById('btnMuteSound');
+
+    // Alternar som de alerta
+    btnMuteSound.addEventListener('click', () => {
+      const mutado = API.toggleMute();
+      btnMuteSound.textContent = mutado ? '🔇 Som Desativado' : '🔊 Som Ativado';
+      btnMuteSound.style.opacity = mutado ? '0.6' : '1';
+    });
+
+    // Filtros rápidos
+    document.querySelectorAll('.filter-btn[data-filter]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn[data-filter]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filtroAtual = btn.getAttribute('data-filter');
+        renderizarCards();
+      });
+    });
+
+    // Injeção de testes para avaliação prática imediata
+    document.getElementById('btnSimulaCO2').addEventListener('click', async () => {
+      await API.injetarCenario({ siloId: 2, co2: 1550, temperatura: 31.8 });
+    });
+
+    document.getElementById('btnSimulaTemp').addEventListener('click', async () => {
+      await API.injetarCenario({ siloId: 1, temperatura: 35.8 });
+    });
+
+    document.getElementById('btnSimulaCarga').addEventListener('click', async () => {
+      await API.injetarCenario({ siloId: 5, nivelPreenchimento: 98.6 });
+    });
+
+    // Renderiza a grade de cards
+    function renderizarCards() {
+      if (!silosData || silosData.length === 0) return;
+
+      const silosFiltrados = silosData.filter(silo => {
+        if (filtroAtual === 'todos') return true;
+        if (filtroAtual === 'alertas') {
+          return silo.alarme !== 'NORMAL' || silo.temperatura >= 30.0 || silo.co2 >= 1000 || silo.bloqueadoCarga;
+        }
+        return silo.tipoGrao === filtroAtual;
+      });
+
+      if (silosFiltrados.length === 0) {
+        silosGrid.innerHTML = `
+          <div style="padding: 40px; text-align: center; grid-column: 1/-1; color: #64748b;">
+            Nenhum silo correspondente ao filtro selecionado ("${filtroAtual}").
+          </div>`;
+        return;
+      }
+
+      silosGrid.innerHTML = silosFiltrados.map(silo => {
+        // Classificação visual de severidade (Verde = Normal, Amarelo = Alerta, Vermelho = Crítico)
+        let statusClass = 'status-ok';
+        let badgeHtml = '<span class="badge-tag badge-ok">STATUS: OK</span>';
+        
+        if (silo.alarme === 'CRITICO' || silo.temperatura >= 35.0) {
+          statusClass = 'status-danger';
+          badgeHtml = '<span class="badge-tag badge-danger">⚠️ [!] ALERTA CRÍTICO</span>';
+        } else if (silo.alarme === 'CO2_ELEVADO' || silo.co2 >= 1000 || silo.temperatura >= 30.0 || silo.bloqueadoCarga) {
+          statusClass = 'status-warning';
+          if (silo.bloqueadoCarga) {
+            badgeHtml = '<span class="badge-tag badge-warning">🛑 CARGA BLOQUEADA</span>';
+          } else if (silo.co2 >= 1000) {
+            badgeHtml = '<span class="badge-tag badge-warning">⚠️ CO₂ ELEVADO</span>';
+          } else {
+            badgeHtml = '<span class="badge-tag badge-warning">⚠️ ALERTA TÉRMICO</span>';
+          }
+        }
+
+        // Barra de progresso cor
+        let fillClass = '';
+        if (silo.nivelPreenchimento >= 98.0) fillClass = 'danger';
+        else if (silo.nivelPreenchimento >= 85.0) fillClass = 'warning';
+
+        const tempClass = silo.temperatura >= 35.0 ? 'alert-temp' : (silo.temperatura >= 30.0 ? 'alert-co2' : '');
+        const co2Class = silo.co2 >= 1500 ? 'alert-temp' : (silo.co2 >= 1000 ? 'alert-co2' : '');
+
+        const comportaStatus = silo.comporta === 'ABERTA' ? 'ABERTA' : 'FECHADA';
+        const exaustorStatus = silo.exaustor === 'LIGADO' ? 'LIGADO' : 'DESLIG.';
+        const atuadoresAtivos = (silo.comporta === 'ABERTA' || silo.exaustor === 'LIGADO');
+
+        return `
+          <div class="silo-card ${statusClass}" onclick="window.location.href='/tela2-detalhe.html?siloId=${silo.siloId}'">
+            <div class="card-header">
+              <div class="card-title">
+                <span>🏭</span>
+                <span>${silo.codigo} (${silo.tipoGrao})</span>
+              </div>
+              ${badgeHtml}
+            </div>
+
+            <div class="card-body">
+              <!-- Nível de Ocupação -->
+              <div class="level-container">
+                <div class="level-header">
+                  <span>Nível de Ocupação</span>
+                  <span style="font-weight: 700;">${silo.nivelPreenchimento}%</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill ${fillClass}" style="width: ${Math.min(100, silo.nivelPreenchimento)}%;"></div>
+                </div>
+              </div>
+
+              <!-- Métricas Principais -->
+              <div class="metrics-row">
+                <div class="metric-box">
+                  <div class="metric-label">Temperatura</div>
+                  <div class="metric-value ${tempClass}">${silo.temperatura.toFixed(1)} °C</div>
+                </div>
+                <div class="metric-box">
+                  <div class="metric-label">Umidade</div>
+                  <div class="metric-value">${silo.umidade.toFixed(1)} %</div>
+                </div>
+              </div>
+
+              <div class="metrics-row">
+                <div class="metric-box">
+                  <div class="metric-label">Concentração CO₂</div>
+                  <div class="metric-value ${co2Class}">${silo.co2} ppm</div>
+                </div>
+                <div class="metric-box">
+                  <div class="metric-label">Modo Operação</div>
+                  <div class="metric-value" style="font-size: 0.95rem; margin-top: 5px;">
+                    ${silo.modoOperacao === 'AUTOMATICO' ? '⚙️ AUTOMÁTICO' : '🖐️ MANUAL'}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Atuadores -->
+              <div class="actuator-status-box">
+                <span class="actuator-label">Exaustor / Comporta:</span>
+                <span class="actuator-state ${atuadoresAtivos ? 'active' : 'inactive'}">
+                  ${exaustorStatus} / ${comportaStatus}
+                </span>
+              </div>
+            </div>
+
+            <div class="card-footer" onclick="event.stopPropagation()">
+              <a href="/tela2-detalhe.html?siloId=${silo.siloId}" class="btn-details">
+                🔍 Ver Detalhes (Silo 0${silo.siloId})
+              </a>
+              <a href="/tela3-controle.html?siloId=${silo.siloId}" class="btn-actuate-quick" title="Acessar Comandos de Atuação">
+                ⚙️ Atuadores
+              </a>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Avalia anomalias para disparar banner superior e som
+    function avaliarAlarmesGlobais() {
+      const criticos = silosData.filter(s => s.alarme === 'CRITICO' || s.temperatura >= 35.0 || s.co2 >= 1500);
+      if (criticos.length > 0) {
+        alarmeCriticoAtivo = true;
+        criticalAlertBanner.style.display = 'flex';
+        criticalAlertMsg.textContent = `ALERTA CRÍTICO: ${criticos.length} silo(s) em risco térmico/gás! (${criticos.map(c => c.codigo).join(', ')})`;
+        API.playAlarmBeep();
+      } else {
+        alarmeCriticoAtivo = false;
+        criticalAlertBanner.style.display = 'none';
+      }
+    }
+
+    // Inicializa conexão SSE (RF-02 e RNF-02)
+    API.connectSSE({
+      onStatusChange: (status, msg) => {
+        sseStatusBadge.className = `sse-badge ${status}`;
+        sseStatusText.textContent = msg;
+      },
+      onSensorUpdate: (novoDado) => {
+        const index = silosData.findIndex(s => s.siloId === novoDado.siloId);
+        if (index >= 0) {
+          silosData[index] = { ...silosData[index], ...novoDado };
+        } else {
+          silosData.push(novoDado);
+        }
+        renderizarCards();
+        avaliarAlarmesGlobais();
+      },
+      onConsolidado: (listaSilos) => {
+        silosData = listaSilos;
+        renderizarCards();
+        avaliarAlarmesGlobais();
+      }
+    });
+
+    // Carga inicial via REST para exibição imediata
+    API.buscarTodosSilos().then(res => {
+      if (res && res.silos) {
+        silosData = res.silos;
+        renderizarCards();
+        avaliarAlarmesGlobais();
+      }
+    });
+  </script>
+</body>
+</html>

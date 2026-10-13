@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agro-Monitoring Pro - Inspeção Detalhada e Diagnóstico Térmico</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='20' font-size='20'>🔍</text></svg>">
+  <style>
+    /* Animação do exaustor quando ativo */
+    @keyframes spinExaustor {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .fan-spinning {
+      transform-origin: 200px 52px;
+      animation: spinExaustor 0.8s linear infinite;
+    }
+
+    /* Gráfico de Histórico */
+    .chart-container {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      height: 170px;
+      position: relative;
+    }
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- CABEÇALHO INDUSTRIAL -->
+  <header class="industrial-header">
+    <div class="header-brand">
+      <a href="/tela1-dashboard.html" style="color: #ffffff; text-decoration: none; font-size: 1.2rem; display: flex; align-items: center; gap: 8px;" title="Retornar à Visão Geral">
+        ⬅️
+      </a>
+      <div class="brand-icon">🏭</div>
+      <div>
+        <div id="headerTitle" class="brand-title">Telemetria Detalhada — Silo 02 (Soja)</div>
+        <div class="brand-subtitle">Corte Transversal Vetorial SVG & Mapa Térmico Multicamada</div>
+      </div>
+    </div>
+    <div class="header-status">
+      <div id="sseStatusBadge" class="sse-badge connecting">
+        <span class="pulse-dot"></span>
+        <span id="sseStatusText">Conectando...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTEÚDO PRINCIPAL (LAYOUT DUAS COLUNAS) -->
+  <main class="main-container">
+    <div class="detail-layout">
+
+      <!-- COLUNA ESQUERDA: CORTE TRANSVERSAL SVG -->
+      <section class="panel-card">
+        <div class="panel-header">
+          <span>📐 Esquema de Corte Transversal do Silo</span>
+          <button id="btnToggleSensorError" class="btn-secondary-action" style="padding: 4px 10px; font-size: 0.75rem;" title="Simula quebra de cabo de termopar">
+            ⚠️ Simular Falha Termopar
+          </button>
+        </div>
+        <div class="panel-body">
+          <div class="svg-silo-container">
+            <svg id="siloSvg" viewBox="0 0 400 480" width="100%" height="100%">
+              <defs>
+                <!-- Gradiente do Metal do Silo -->
+                <linearGradient id="metalGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#94a3b8" />
+                  <stop offset="30%" stop-color="#cbd5e1" />
+                  <stop offset="70%" stop-color="#f1f5f9" />
+                  <stop offset="100%" stop-color="#64748b" />
+                </linearGradient>
+
+                <!-- Gradiente da Massa de Grãos -->
+                <linearGradient id="grainGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#fde047" />
+                  <stop offset="50%" stop-color="#eab308" />
+                  <stop offset="100%" stop-color="#ca8a04" />
+                </linearGradient>
+
+                <!-- Sombra Suave -->
+                <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+                  <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.15" />
+                </filter>
+              </defs>
+
+              <!-- ================= ESTRUTURA DO SILO ================= -->
+              <!-- Contorno externo e corpo -->
+              <!-- Teto Cônico -->
+              <polygon points="200,30 90,110 310,110" fill="url(#metalGrad)" stroke="#475569" stroke-width="2" filter="url(#shadow)" />
+              
+              <!-- Corpo Cilíndrico (Largura 220px, Altura 250px) -->
+              <rect x="90" y="110" width="220" height="240" fill="#f8fafc" stroke="#475569" stroke-width="2" />
+              <!-- Vigas e anéis de reforço industriais -->
+              <line x1="90" y1="170" x2="310" y2="170" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4" />
+              <line x1="90" y1="230" x2="310" y2="230" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4" />
+              <line x1="90" y1="290" x2="310" y2="290" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4" />
+
+              <!-- Funil Inferior Cônico de Descarga -->
+              <polygon points="90,350 310,350 230,420 170,420" fill="url(#metalGrad)" stroke="#475569" stroke-width="2" />
+
+              <!-- ================= MASSA DE GRÃOS DINÂMICA ================= -->
+              <!-- Clip-path para preencher proporcionalmente o corpo do silo -->
+              <g id="grainGroup">
+                <!-- Nível dos grãos: y varia dinamicamente de 350 (0%) até 120 (100%) -->
+                <rect id="grainBody" x="92" y="150" width="216" height="200" fill="url(#grainGrad)" opacity="0.85" />
+                <polygon points="92,350 308,350 228,418 172,418" fill="url(#grainGrad)" opacity="0.85" />
+                <!-- Superfície em cone natural da massa -->
+                <path id="grainSurface" d="M 92,150 Q 200,135 308,150 L 308,160 L 92,160 Z" fill="#ca8a04" opacity="0.6" />
+              </g>
+
+              <!-- ================= ATUADOR: EXAUSTOR TÉRMICO SUPERIOR ================= -->
+              <g id="exhaustUnit" transform="translate(0, 0)">
+                <!-- Base do duto de exaustão -->
+                <rect x="185" y="10" width="30" height="22" fill="#334155" rx="3" />
+                <circle cx="200" cy="20" r="14" fill="#0f172a" stroke="#22c55e" stroke-width="2" id="exhaustCircle" />
+                <!-- Hélice do Exaustor -->
+                <g id="exhaustFan" class="">
+                  <path d="M 200,20 L 200,10 M 200,20 L 209,25 M 200,20 L 191,25" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
+                  <circle cx="200" cy="20" r="3" fill="#ffffff" />
+                </g>
+                <text x="225" y="24" font-size="11" font-weight="700" fill="#334155" id="exhaustLabel">Exaustor: DESLIGADO</text>
+              </g>
+
+              <!-- ================= ATUADOR: COMPORTA SUPERIOR ================= -->
+              <g id="damperUnit" transform="translate(0,0)">
+                <rect x="290" y="80" width="35" height="18" fill="#1e293b" rx="2" />
+                <rect id="damperFlap" x="293" y="83" width="29" height="12" fill="#ef4444" rx="1" />
+                <text x="330" y="93" font-size="11" font-weight="700" fill="#334155" id="damperLabel">Comporta: FECHADA</text>
+              </g>
+
+              <!-- ================= CABO CENTRAL DE TERMOPARES ================= -->
+              <line x1="200" y1="110" x2="200" y2="370" stroke="#0284c7" stroke-width="2.5" stroke-dasharray="3,2" />
+
+              <!-- TERMOPAR 1: TOPO (y = 160) -->
+              <g id="sensorTopoGroup" transform="translate(200, 160)">
+                <circle id="nodeTopo" cx="0" cy="0" r="8" fill="#ef4444" stroke="#ffffff" stroke-width="2" />
+                <rect x="15" y="-12" width="115" height="24" fill="rgba(255,255,255,0.92)" stroke="#cbd5e1" rx="4" />
+                <text id="textTopo" x="22" y="4" font-size="11" font-weight="700" fill="#0f172a">Topo: 31.7 °C</text>
+              </g>
+
+              <!-- TERMOPAR 2: MEIO (y = 240) -->
+              <g id="sensorMeioGroup" transform="translate(200, 240)">
+                <circle id="nodeMeio" cx="0" cy="0" r="8" fill="#f59e0b" stroke="#ffffff" stroke-width="2" />
+                <rect x="15" y="-12" width="115" height="24" fill="rgba(255,255,255,0.92)" stroke="#cbd5e1" rx="4" />
+                <text id="textMeio" x="22" y="4" font-size="11" font-weight="700" fill="#0f172a">Meio: 28.4 °C</text>
+              </g>
+
+              <!-- TERMOPAR 3: FUNDO (y = 320) -->
+              <g id="sensorFundoGroup" transform="translate(200, 320)">
+                <circle id="nodeFundo" cx="0" cy="0" r="8" fill="#10b981" stroke="#ffffff" stroke-width="2" />
+                <rect x="15" y="-12" width="115" height="24" fill="rgba(255,255,255,0.92)" stroke="#cbd5e1" rx="4" />
+                <text id="textFundo" x="22" y="4" font-size="11" font-weight="700" fill="#0f172a">Fundo: 25.1 °C</text>
+              </g>
+
+              <!-- Indicador de Volume e Escala -->
+              <text id="textNivelSvg" x="100" y="130" font-size="12" font-weight="700" fill="#1e293b">Volume: 82.0%</text>
+              <!-- Comporta Inferior de Descarga -->
+              <rect x="185" y="420" width="30" height="10" fill="#0f172a" />
+            </svg>
+          </div>
+          <div style="font-size: 0.8rem; color: #64748b; text-align: center;">
+            Legenda Térmica: <span style="color: #10b981;">● Normal (&lt;28°C)</span> &bull; 
+            <span style="color: #f59e0b;">● Atenção (&ge;28°C)</span> &bull; 
+            <span style="color: #ef4444;">● Crítico (&ge;30°C)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLUNA DIREITA: LEITURAS EM TEMPO REAL & HISTÓRICO -->
+      <section class="panel-card">
+        <div class="panel-header">
+          <span>📊 Leituras em Tempo Real (EventStream)</span>
+          <span id="badgeOperacional" class="badge-tag badge-warning">ALERTA CO2</span>
+        </div>
+        <div class="panel-body">
+
+          <!-- TABELA DE INDICADORES -->
+          <table class="info-table">
+            <tbody>
+              <tr>
+                <td>🌡️ Temperatura Média:</td>
+                <td id="lblTempMed" style="color: #dc2626; font-size: 1.1rem;">31.7 °C</td>
+              </tr>
+              <tr>
+                <td>💨 Concentração de CO₂:</td>
+                <td id="lblCO2" style="color: #d97706; font-size: 1.1rem;">1450 ppm (Crítico)</td>
+              </tr>
+              <tr>
+                <td>💧 Umidade do Lote:</td>
+                <td id="lblUmidade">14.2 % (Limite: 14%)</td>
+              </tr>
+              <tr>
+                <td>🚪 Comporta Superior:</td>
+                <td id="lblComporta" style="color: #15803d;">ABERTA (Automática)</td>
+              </tr>
+              <tr>
+                <td>🌀 Exaustores Térmicos:</td>
+                <td id="lblExaustor" style="color: #15803d;">LIGADOS (Em Operação)</td>
+              </tr>
+              <tr>
+                <td>🌾 Tipo de Grão / Capacidade:</td>
+                <td id="lblGraoCapacidade">SOJA / 5.000 Ton</td>
+              </tr>
+              <tr>
+                <td>⚙️ Modo Operacional:</td>
+                <td id="lblModoOperacao">AUTOMÁTICO</td>
+              </tr>
+              <tr>
+                <td>📅 Última Inspeção Técnica:</td>
+                <td id="lblUltimaInspecao">2026-09-05</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- HISTÓRICO DAS ÚLTIMAS LEITURAS (GRÁFICO CANVAs NATIVO) -->
+          <div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: #475569; margin-bottom: 6px; display: flex; justify-content: space-between;">
+              <span>📈 Tendência Térmica e de CO₂ (Histórico Recente)</span>
+              <span style="font-size: 0.75rem; color: #64748b;">Vermelho = Temp (°C) | Laranja = CO₂/50</span>
+            </div>
+            <div class="chart-container">
+              <canvas id="trendChart"></canvas>
+            </div>
+          </div>
+
+          <!-- BOTÕES DE AÇÃO PRINCIPAL E NAVEGAÇÃO -->
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+            <a id="btnAcessarControle" href="/tela3-controle.html?siloId=2" class="btn-primary-action">
+              ⚡ Acessar Controle de Atuadores (Painel Manual)
+            </a>
+            <a href="/tela1-dashboard.html" class="btn-secondary-action">
+              🏠 Voltar ao Dashboard Geral
+            </a>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    Agro-Monitoring Pro &bull; Visão Detalhada de Silo &bull; UniRV (Me. Sergio Souza Novak)
+  </footer>
+
+  <script src="/js/api.js"></script>
+  <script>
+    // Recupera id do silo via query string (padrão Silo 2 conforme exemplo do PDF)
+    const urlParams = new URLSearchParams(window.location.search);
+    const siloId = parseInt(urlParams.get('siloId') || '2', 10);
+
+    // Elementos DOM
+    const headerTitle = document.getElementById('headerTitle');
+    const btnAcessarControle = document.getElementById('btnAcessarControle');
+    const sseStatusBadge = document.getElementById('sseStatusBadge');
+    const sseStatusText = document.getElementById('sseStatusText');
+
+    const lblTempMed = document.getElementById('lblTempMed');
+    const lblCO2 = document.getElementById('lblCO2');
+    const lblUmidade = document.getElementById('lblUmidade');
+    const lblComporta = document.getElementById('lblComporta');
+    const lblExaustor = document.getElementById('lblExaustor');
+    const lblGraoCapacidade = document.getElementById('lblGraoCapacidade');
+    const lblModoOperacao = document.getElementById('lblModoOperacao');
+    const lblUltimaInspecao = document.getElementById('lblUltimaInspecao');
+    const badgeOperacional = document.getElementById('badgeOperacional');
+
+    // Elementos SVG
+    const grainBody = document.getElementById('grainBody');
+    const grainSurface = document.getElementById('grainSurface');
+    const textNivelSvg = document.getElementById('textNivelSvg');
+    const exhaustFan = document.getElementById('exhaustFan');
+    const exhaustCircle = document.getElementById('exhaustCircle');
+    const exhaustLabel = document.getElementById('exhaustLabel');
+    const damperFlap = document.getElementById('damperFlap');
+    const damperLabel = document.getElementById('damperLabel');
+
+    const nodeTopo = document.getElementById('nodeTopo');
+    const nodeMeio = document.getElementById('nodeMeio');
+    const nodeFundo = document.getElementById('nodeFundo');
+    const textTopo = document.getElementById('textTopo');
+    const textMeio = document.getElementById('textMeio');
+    const textFundo = document.getElementById('textFundo');
+
+    let falhaTermoparSimulada = false;
+    document.getElementById('btnToggleSensorError').addEventListener('click', () => {
+      falhaTermoparSimulada = !falhaTermoparSimulada;
+      document.getElementById('btnToggleSensorError').textContent = falhaTermoparSimulada ? '✔️ Restaurar Termopar' : '⚠️ Simular Falha Termopar';
+      atualizarSVG({ ...currentSilo });
+    });
+
+    // Histórico de pontos para o gráfico de tendência
+    const historicoTemp = [];
+    const historicoCO2 = [];
+    const MAX_PONTOS = 25;
+    let currentSilo = null;
+
+    btnAcessarControle.href = `/tela3-controle.html?siloId=${siloId}`;
+
+    function corPorTemperatura(t) {
+      if (t >= 32.0) return '#ef4444'; // Crítico
+      if (t >= 28.0) return '#f59e0b'; // Atenção
+      return '#10b981';                // Normal
+    }
+
+    function atualizarSVG(silo) {
+      if (!silo) return;
+
+      // 1. Atualiza Nível da Massa de Grãos
+      // y varia de 350 (0%) a 120 (100%)
+      const alturaMax = 230;
+      const pct = Math.max(0, Math.min(100, silo.nivelPreenchimento));
+      const novaAltura = (alturaMax * (pct / 100));
+      const novoY = 350 - novaAltura;
+
+      grainBody.setAttribute('y', novoY);
+      grainBody.setAttribute('height', novaAltura);
+      grainSurface.setAttribute('d', `M 92,${novoY} Q 200,${novoY - 14} 308,${novoY} L 308,${novoY + 8} L 92,${novoY + 8} Z`);
+      textNivelSvg.textContent = `Volume: ${pct.toFixed(1)}%`;
+
+      // 2. Atualiza Termopares (Topo, Meio, Fundo)
+      if (falhaTermoparSimulada) {
+        textTopo.textContent = 'Topo: ERR ⚠️';
+        nodeTopo.setAttribute('fill', '#dc2626');
+      } else {
+        const tTopo = silo.tempTopo !== undefined ? silo.tempTopo : silo.temperatura;
+        textTopo.textContent = `Topo: ${tTopo.toFixed(1)} °C`;
+        nodeTopo.setAttribute('fill', corPorTemperatura(tTopo));
+      }
+
+      const tMeio = silo.tempMeio !== undefined ? silo.tempMeio : (silo.temperatura - 1.8);
+      textMeio.textContent = `Meio: ${tMeio.toFixed(1)} °C`;
+      nodeMeio.setAttribute('fill', corPorTemperatura(tMeio));
+
+      const tFundo = silo.tempFundo !== undefined ? silo.tempFundo : (silo.temperatura - 3.5);
+      textFundo.textContent = `Fundo: ${tFundo.toFixed(1)} °C`;
+      nodeFundo.setAttribute('fill', corPorTemperatura(tFundo));
+
+      // 3. Atualiza Exaustor
+      const isExaustorLigado = (silo.exaustor === 'LIGADO' || silo.exaustor1 === 'LIGADO' || silo.exaustor2 === 'LIGADO');
+      if (isExaustorLigado) {
+        exhaustFan.setAttribute('class', 'fan-spinning');
+        exhaustCircle.setAttribute('stroke', '#22c55e');
+        exhaustLabel.textContent = 'Exaustor: LIGADO';
+        exhaustLabel.setAttribute('fill', '#15803d');
+      } else {
+        exhaustFan.setAttribute('class', '');
+        exhaustCircle.setAttribute('stroke', '#64748b');
+        exhaustLabel.textContent = 'Exaustor: DESLIGADO';
+        exhaustLabel.setAttribute('fill', '#64748b');
+      }
+
+      // 4. Atualiza Comporta
+      const isComportaAberta = (silo.comporta === 'ABERTA');
+      if (isComportaAberta) {
+        damperFlap.setAttribute('fill', '#22c55e');
+        damperLabel.textContent = 'Comporta: ABERTA';
+        damperLabel.setAttribute('fill', '#15803d');
+      } else {
+        damperFlap.setAttribute('fill', '#ef4444');
+        damperLabel.textContent = 'Comporta: FECHADA';
+        damperLabel.setAttribute('fill', '#64748b');
+      }
+    }
+
+    function atualizarPainel(silo) {
+      currentSilo = silo;
+      headerTitle.textContent = `Telemetria Detalhada — ${silo.codigo} (${silo.tipoGrao})`;
+
+      lblTempMed.textContent = `${silo.temperatura.toFixed(1)} °C`;
+      lblTempMed.style.color = silo.temperatura >= 35.0 ? '#dc2626' : (silo.temperatura >= 30.0 ? '#d97706' : '#15803d');
+
+      lblCO2.textContent = `${silo.co2} ppm ${silo.co2 >= 1500 ? '(Crítico)' : (silo.co2 >= 1000 ? '(Atenção)' : '(Normal)')}`;
+      lblCO2.style.color = silo.co2 >= 1500 ? '#dc2626' : (silo.co2 >= 1000 ? '#d97706' : '#15803d');
+
+      lblUmidade.textContent = `${silo.umidade.toFixed(1)} % (Ideal &le; 13.5%)`;
+      lblComporta.textContent = `${silo.comporta} (${silo.modoOperacao === 'AUTOMATICO' ? 'Automático' : 'Manual'})`;
+      lblComporta.style.color = silo.comporta === 'ABERTA' ? '#15803d' : '#64748b';
+
+      lblExaustor.textContent = `${silo.exaustor} (${silo.modoOperacao === 'AUTOMATICO' ? 'Automático' : 'Manual'})`;
+      lblExaustor.style.color = silo.exaustor === 'LIGADO' ? '#15803d' : '#64748b';
+
+      lblGraoCapacidade.textContent = `${silo.tipoGrao} / ${silo.capacidadeTotalTon || 5000} Ton`;
+      lblModoOperacao.textContent = silo.modoOperacao;
+      lblUltimaInspecao.textContent = silo.dataUltimaInspecao || '2026-09-05';
+
+      // Badge de Status
+      if (silo.alarme === 'CRITICO' || silo.temperatura >= 35.0) {
+        badgeOperacional.className = 'badge-tag badge-danger';
+        badgeOperacional.textContent = 'SUPERAQUECIMENTO';
+      } else if (silo.co2 >= 1000 || silo.alarme === 'CO2_ELEVADO') {
+        badgeOperacional.className = 'badge-tag badge-warning';
+        badgeOperacional.textContent = 'ALERTA CO2';
+      } else {
+        badgeOperacional.className = 'badge-tag badge-ok';
+        badgeOperacional.textContent = 'NORMAL';
+      }
+
+      // Adiciona aos dados históricos para o gráfico
+      historicoTemp.push(silo.temperatura);
+      historicoCO2.push(silo.co2 / 50); // Escalonado para caber no mesmo gráfico
+      if (historicoTemp.length > MAX_PONTOS) historicoTemp.shift();
+      if (historicoCO2.length > MAX_PONTOS) historicoCO2.shift();
+
+      desenharGrafico();
+      atualizarSVG(silo);
+    }
+
+    // Desenho dinâmico do gráfico em Canvas HTML5 nativo de alta precisão
+    const canvas = document.getElementById('trendChart');
+    const ctx = canvas.getContext('2d');
+
+    function desenharGrafico() {
+      // Ajusta dimensões reais do canvas
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Grade de fundo
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      for (let y = 20; y < h; y += 35) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      if (historicoTemp.length < 2) return;
+
+      const stepX = w / (MAX_PONTOS - 1);
+
+      // Linha 1: Temperatura (Vermelho)
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      historicoTemp.forEach((val, i) => {
+        // Mapeia 20°C a 40°C para altura
+        const norm = (val - 20) / 20;
+        const y = h - (norm * (h - 30)) - 15;
+        const x = i * stepX;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Linha 2: CO2 / 50 (Laranja)
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      historicoCO2.forEach((val, i) => {
+        // Mapeia 8 (400ppm) a 36 (1800ppm)
+        const norm = (val - 8) / 28;
+        const y = h - (norm * (h - 30)) - 15;
+        const x = i * stepX;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    window.addEventListener('resize', desenharGrafico);
+
+    // Conexão SSE
+    API.connectSSE({
+      onStatusChange: (status, msg) => {
+        sseStatusBadge.className = `sse-badge ${status}`;
+        sseStatusText.textContent = msg;
+      },
+      onSensorUpdate: (silo) => {
+        if (silo.siloId === siloId) {
+          atualizarPainel(silo);
+        }
+      },
+      onConsolidado: (silos) => {
+        const silo = silos.find(s => s.siloId === siloId);
+        if (silo) atualizarPainel(silo);
+      }
+    });
+
+    // Carga inicial via REST
+    API.buscarSilo(siloId).then(res => {
+      if (res && res.silo) {
+        atualizarPainel(res.silo);
+      }
+    });
+  </script>
+</body>
+</html>
